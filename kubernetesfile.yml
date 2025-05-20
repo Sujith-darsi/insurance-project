@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: insurance
-          image: sujithdarsi/insurancedemo:1
+          image: sujithdarsi/staragileprojectinsurance:v1
           ports:
             - containerPort: 8081
           env:
