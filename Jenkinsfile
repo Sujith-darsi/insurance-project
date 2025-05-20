@@ -1,54 +1,39 @@
-node{
-    def mavenHome
-    def mavenCMD
-    def docker
-    def dockerCMD
-    def tagName
-    stage('Prepare environment')
-       echo "initialise all variable"
-        mavenHome = tool name: 'maven' , type: 'maven'
-        mavenCMD ="${mavenHome}/bin/mvn"
-        docker = tool name: 'docker' , type: 'org.jenkinsci.plugins.docker.commons.tools.DockerTool'
-        dockerCMD = "${docker}/bin/docker"
-        tagName="1.0"
+pipeline {
+    agent any
+    stages{
+        stage('build project'){
+            steps{
+                git url:'https://github.com/Sujith-darsi/insurance-project.git', branch: "master"
+                sh 'mvn clean package'
+              
+            }
+        }
+        stage('Build docker image'){
+            steps{
+                script{
+                    sh 'docker build -t sujithdarsi/staragileprojectinsurance:v1 .'
+                    sh 'docker images'
+                }
+            }
+        }
+         stage('Docker login') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-pwd', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh "echo $PASS | docker login -u $USER --password-stdin"
+                    sh 'docker tag sujithdarsi/staragileprojectinsurance:v1 sujithdarsi/staragileprojectinsurance'
+                    sh 'docker push sujithdarsi/staragileprojectinsurance:v1'
+                }
+            }
+        }
+         
         
-    stage('Code Checkout')
-       try{
-        echo "checkout from git repo"
-        git 'https://github.com/vikulrepo/insurance-project.git'
-        }
-       catch(Exception e){
-            echo 'Exception occured in Git Code Checkout Stage'
-            currentBuild.result = "FAILURE"
-            emailext body: '''Dear All,
-            The Jenkins job ${JOB_NAME} has been failed. Request you to please have a look at it immediately by clicking on the below link. 
-            ${BUILD_URL}''', subject: 'Job ${JOB_NAME} ${BUILD_NUMBER} is failed', to: 'vikul@gmail.com'
-        }
-      stage('Build the Application'){
-        echo "Cleaning... Compiling...Testing... Packaging..."
-        //sh 'mvn clean package'
-        sh "${mavenCMD} clean package"     
+     stage('Deploy using k8s') {
+            steps {
+                sh 'sudo kubectl apply -f kubernetesfile.yml'
+                sh 'kubectl get pods --all'
+                  
+                }
+            }
+        
     }
-      stage('publish the report'){
-          echo "generating test reports"
-          publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: '/var/lib/jenkins/workspace/insureme project/target/surefire-reports', reportFiles: 'index.html', reportName: 'HTML Report', reportTitles: '', useWrapperFileDirectly: true])
-      }
-      stage('Containerise the application'){
-          echo "making the image out of the application"
-          sh "${dockerCMD} build -t vikuldocker/insureme:${tagName} . "
-      }
-      stage('Pushing it ot the DockerHub'){
-        echo 'Pushing the docker image to DockerHub'
-        withCredentials([string(credentialsId: 'dockerhubpassword', variable: 'dockerhubpassword')]) {
-            sh "${dockerCMD} login -u vikuldocker -p ${dockerhubpassword}"
-            sh "${dockerCMD} push vikuldocker/insureme:${tagName}"
-      }
-
-      stage('Configure and Deploy to the test-serverusing ansible'){  
-          ansiblePlaybook become: true, credentialsId: 'ansible-key', disableHostKeyChecking: true, installation: 'ansible', inventory: '/etc/ansible/hosts', playbook: 'ansible-playbook.yml'
-      }
-
 }
-}
-
-
