@@ -30,7 +30,6 @@ pipeline {
      stage('Deploy using k8s') {
             steps {
                 sh 'sudo kubectl apply -f kubernetesfile.yml'
-                sh 'kubectl get all'
                   
                 }
             }
