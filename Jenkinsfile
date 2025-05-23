@@ -27,11 +27,9 @@ pipeline {
         }
          
         
-     stage('Deploy using k8s') {
+     stage('Deploy using ansible') {
             steps {
-                sh 'sudo kubectl apply -f kubernetesfile.yml'
-                sh 'sudo kubectl get all'
-                  
+                ansiblePlaybook become: true, credentialsId: 'ansible', disableHostKeyChecking: true, installation: 'ansible', inventory: '/etc/ansible/hosts', playbook: 'ansible-playbook.yml', vaultTmpPath: ''
                 }
             }
         
